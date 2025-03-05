@@ -13,6 +13,7 @@ public class PlayerController : Singleton<PlayerController>
   
     [Header("UI Elements")]
     public Image heartImage; 
+    public GameObject arrowSprite;
 
     [Header("Movement Settings")]
     public float walkSpeed = 2f;
@@ -55,6 +56,8 @@ public class PlayerController : Singleton<PlayerController>
     [Header("Components")]
     public Rigidbody rb;
     private Gamepad gamepad;
+
+    private Vector3 lastMoveDirection = Vector3.forward;
 
     private Vector2 moveInput;
     private bool canDash = true;
@@ -104,6 +107,17 @@ void HandleMovement()
     float speed = Mathf.Lerp(walkSpeed, runSpeed, moveInput.magnitude);
     Vector3 movement = new Vector3(moveInput.x, 0, moveInput.y) * speed;
     rb.linearVelocity = new Vector3(movement.x, rb.linearVelocity.y, movement.z);
+
+    if (moveInput.magnitude > 0.1f)
+    {
+        lastMoveDirection = movement.normalized;
+    }
+
+    if (arrowSprite != null)
+    {
+        float angle = Mathf.Atan2(lastMoveDirection.x, lastMoveDirection.z) * Mathf.Rad2Deg;
+        arrowSprite.transform.rotation = Quaternion.Euler(90f, angle, 0f); 
+    }
 
     if (moveInput.x != 0)
         spriteRenderer.flipX = moveInput.x < 0;
@@ -158,7 +172,9 @@ void HandleMovement()
 
     IEnumerator ShootProjectileRoutine()
     {
-        if (!canShoot || projectilePrefab == null) yield break;
+        if (!canShoot || projectilePrefab == null || firepoint == null) yield break;
+        
+        if (this == null) yield break;  
 
         canShoot = false;
         canMove = false;
@@ -166,7 +182,9 @@ void HandleMovement()
         PlayAnimation("P_CastSpell", true);
 
         yield return new WaitForSeconds(0.2f);
-        SpawnProjectile();
+
+        if (this != null)
+            SpawnProjectile();
 
         yield return new WaitForSeconds(anim.GetCurrentAnimatorStateInfo(0).length - 0.2f);
 
@@ -176,14 +194,23 @@ void HandleMovement()
         canShoot = true;
     }
 
-    void SpawnProjectile()
-    {
-        GameObject projectile = Instantiate(projectilePrefab, firepoint.position, Quaternion.identity);
-        SpellProjectile projectileScript = projectile.GetComponent<SpellProjectile>();
 
+    void SpawnProjectile()
+{
+    if (firepoint == null || projectilePrefab == null) return;  
+
+    GameObject projectile = Instantiate(projectilePrefab, firepoint.position, Quaternion.identity);
+    if (projectile == null) return; 
+
+    SpellProjectile projectileScript = projectile.GetComponent<SpellProjectile>();
+
+    if (projectileScript != null)
+    {
         Vector3 direction = lastShootDirection.magnitude > 0.1f ? lastShootDirection : Vector3.forward;
-        projectileScript?.Launch(direction, projectileSpeed, (int)projectileDamage, canShootAOEProjectile);
+        projectileScript.Launch(direction, projectileSpeed, (int)projectileDamage, canShootAOEProjectile);
     }
+}
+
 IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack)
 {
     if (isLightAttack && !canLightAttack) yield break;
@@ -241,27 +268,28 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
 
     
 
-    IEnumerator DashCoroutine()
+   IEnumerator DashCoroutine()
+{
+    PlayAnimation("P_Dash", true);
+    currentDashes--;
+
+    Vector3 dashDir = moveInput.magnitude > 0.1f ? new Vector3(moveInput.x, 0, moveInput.y).normalized : lastMoveDirection;
+
+    float dashDuration = 0.3f;
+    float elapsed = 0f;
+
+    canMove = false;
+    while (elapsed < dashDuration)
     {
-        PlayAnimation("P_Dash", true);
-        currentDashes--;
-
-        Vector3 dashDir = new Vector3(moveInput.x, 0, moveInput.y).normalized;
-        float dashDuration = 0.3f;
-        float elapsed = 0f;
-
-        canMove = false;
-        while (elapsed < dashDuration)
-        {
-            rb.linearVelocity = dashDir * dashForce;
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        rb.linearVelocity = Vector3.zero;
-        canMove = true;
-        Invoke(nameof(ReloadDash), dashCooldown);
+        rb.linearVelocity = dashDir * dashForce;
+        elapsed += Time.deltaTime;
+        yield return null;
     }
+
+    rb.linearVelocity = Vector3.zero;
+    canMove = true;
+    Invoke(nameof(ReloadDash), dashCooldown);
+}
 
     private void ReloadDash() => currentDashes = maxDashes;
 
@@ -345,11 +373,23 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
             }
         }
 
-    void Die()
+   void Die()
+{
+    anim.Play("P_Die");
+    if (GameManager.Instance != null)
     {
-        anim.Play("P_Die");
-        GameManager.Instance?.PlayerDied();
+        GameManager.Instance.PlayerDied();
     }
+}
+    void OnDrawGizmosSelected()
+    {
+        if (firepoint != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(firepoint.position, attackRange);
+        }
+    }
+
 
     public void IncreaseMaxDashes() => maxDashes++;
         public void EnableEnvironmentGoldDrop()

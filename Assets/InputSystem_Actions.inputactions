@@ -526,7 +526,7 @@
                     "path": "<XInputController>/rightShoulder",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";Joystick;Gamepad",
                     "action": "OpenShop",
                     "isComposite": false,
                     "isPartOfComposite": false
