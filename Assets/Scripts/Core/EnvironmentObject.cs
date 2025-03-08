@@ -11,7 +11,7 @@ public class EnvironmentObject : MonoBehaviour
 
     [Header("Gold Drop Settings")]
     public bool canDropGold = false;
-    public int[] goldDropAmounts = { 0, 1, 3 };
+    public int[] goldDropAmounts = { 5, 1, 3 };
 
     private void Start()
     {
@@ -52,6 +52,7 @@ public class EnvironmentObject : MonoBehaviour
             }
         }
     }
+
 
     public void EnableGoldDrop()
     {

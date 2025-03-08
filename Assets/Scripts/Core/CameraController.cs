@@ -37,10 +37,7 @@ public class CameraController : Singleton<CameraController>
         {
             player = playerObj.transform;
         }
-        else
-        {
-            Debug.LogWarning("⚠️ No Player found with tag 'Player'!");
-        }
+       
     }
 
     private void FollowPlayer()

@@ -20,7 +20,7 @@ public class PlayerController : Singleton<PlayerController>
     public float runSpeed = 6f;
     public float dashForce = 15f;
     public float dashCooldown = 0.5f;
-    private int maxDashes = 1;
+    public int maxDashes = 1;
     private int currentDashes;
 
     [Header("Attack Settings")]
@@ -196,20 +196,21 @@ void HandleMovement()
 
 
     void SpawnProjectile()
-{
-    if (firepoint == null || projectilePrefab == null) return;  
-
-    GameObject projectile = Instantiate(projectilePrefab, firepoint.position, Quaternion.identity);
-    if (projectile == null) return; 
-
-    SpellProjectile projectileScript = projectile.GetComponent<SpellProjectile>();
-
-    if (projectileScript != null)
     {
-        Vector3 direction = lastShootDirection.magnitude > 0.1f ? lastShootDirection : Vector3.forward;
-        projectileScript.Launch(direction, projectileSpeed, (int)projectileDamage, canShootAOEProjectile);
+        if (firepoint == null || projectilePrefab == null) return;
+
+        GameObject projectile = Instantiate(projectilePrefab, firepoint.position, Quaternion.identity);
+        if (projectile == null) return;
+
+        SpellProjectile projectileScript = projectile.GetComponent<SpellProjectile>();
+
+        if (projectileScript != null)
+        {
+            Vector3 direction = lastShootDirection.magnitude > 0.1f ? lastShootDirection : Vector3.forward;
+            projectileScript.Launch(direction, projectileSpeed, (int)projectileDamage, canShootAOEProjectile);
+        }
     }
-}
+
 
 IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack)
 {
@@ -266,66 +267,96 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
 }
 
 
-    
+    private bool isDashReloading = false; 
+    private bool isDashing = false;
+    private float lastDashTime = 0f; 
+    private float dashChainWindow = 0.3f; 
 
-   IEnumerator DashCoroutine()
-{
-    PlayAnimation("P_Dash", true);
-    currentDashes--;
 
-    Vector3 dashDir = moveInput.magnitude > 0.1f ? new Vector3(moveInput.x, 0, moveInput.y).normalized : lastMoveDirection;
-
-    float dashDuration = 0.3f;
-    float elapsed = 0f;
-
-    canMove = false;
-    while (elapsed < dashDuration)
+    IEnumerator DashCoroutine()
     {
-        rb.linearVelocity = dashDir * dashForce;
-        elapsed += Time.deltaTime;
-        yield return null;
+        if (!canDash || isDashing || currentDashes <= 0) yield break;
+
+        isDashing = true; 
+        PlayAnimation("P_Dash", true);
+        currentDashes--;
+
+        Vector3 dashDir = moveInput.magnitude > 0.1f ? new Vector3(moveInput.x, 0, moveInput.y).normalized : lastMoveDirection;
+        float dashDuration = 0.3f;
+        float elapsed = 0f;
+
+        canMove = false;
+        while (elapsed < dashDuration)
+        {
+            rb.linearVelocity = dashDir * dashForce;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        rb.linearVelocity = Vector3.zero;
+        canMove = true;
+        isDashing = false; 
+
+        lastDashTime = Time.time; 
+
+        yield return new WaitForSeconds(dashChainWindow);
+        if (Time.time - lastDashTime >= dashChainWindow && !isDashReloading)
+        {
+            StartCoroutine(ReloadDashRoutine());
+        }
     }
 
-    rb.linearVelocity = Vector3.zero;
-    canMove = true;
-    Invoke(nameof(ReloadDash), dashCooldown);
-}
 
-    private void ReloadDash() => currentDashes = maxDashes;
 
-    public void TakeDamage(float damage)
+
+
+    private IEnumerator ReloadDashRoutine()
+    {
+        isDashReloading = true;
+        yield return new WaitForSeconds(dashCooldown);
+        currentDashes = maxDashes; 
+        isDashReloading = false;
+    }
+
+
+
+
+        public void TakeDamage(float damage)
     {
         if (hasArmorAbsorb)
         {
-            hasArmorAbsorb = false;
+            hasArmorAbsorb = false; 
+            Debug.Log("🛡 Armor Absorbed the attack!");
             return;
         }
 
-        if (isInvulnerable) return; 
+        if (isInvulnerable) return;
 
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
         UpdateHealthUI();
-        StartCoroutine(HandleHurtAnimation()); 
+        StartCoroutine(HandleHurtAnimation());
 
-        if (currentHealth <= 0)
+       if (currentHealth <= 0)
+    {
+        if (canReviveOnce)
         {
-            if (canReviveOnce)
-            {
-                canReviveOnce = false;
-                currentHealth = maxHealth;
-                UpdateHealthUI();
-            }
-            else
-            {
-                Die();
-            }
+            canReviveOnce = false;
+            currentHealth = maxHealth;
+            UpdateHealthUI();
+            Debug.Log("🩺 Revived with full health!");
         }
         else
         {
-            StartCoroutine(BecomeInvincible()); 
+            Die();
         }
     }
+        else
+        {
+            StartCoroutine(BecomeInvincible());
+        }
+    }
+
 
     IEnumerator HandleHurtAnimation()
     {
@@ -372,6 +403,21 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
                 heartImage.fillAmount = currentHealth / maxHealth;
             }
         }
+    public void DisablePlayerActions()
+    {
+        canMove = false;
+        canDash = false;
+        canLightAttack = false;
+        canHeavyAttack = false;
+    }
+
+    public void EnablePlayerActions()
+    {
+        canMove = true;
+        canDash = true;
+        canLightAttack = true;
+        canHeavyAttack = true;
+    }
 
    void Die()
 {
@@ -391,28 +437,58 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
     }
 
 
-    public void IncreaseMaxDashes() => maxDashes++;
-        public void EnableEnvironmentGoldDrop()
+    public void IncreaseMaxDashes()
+    {
+        maxDashes++;
+        currentDashes = maxDashes;
+        Debug.Log($"Max Dash Increased! New Max Dash: {maxDashes}");
+    }
+
+    public void EnableEnvironmentGoldDrop()
     {
         EnvironmentObject[] environments = FindObjectsOfType<EnvironmentObject>();
         foreach (var env in environments)
         {
             env.EnableGoldDrop();
         }
+        Debug.Log("🔓 Environment Gold Drop Enabled!");
     }
 
-    public void StartRegenHp() => StartCoroutine(RegenHpCoroutine());
-    private IEnumerator RegenHpCoroutine()
+
+    public void StartRegenHp()
     {
-        while (currentHealth < maxHealth)
-        {
-            currentHealth += 1;
-            yield return new WaitForSeconds(2f);
-        }
+        currentHealth = maxHealth;
+        UpdateHealthUI();
+        Debug.Log("✅ Health fully restored!");
     }
-    public void EnableArmorAbsorption() => hasArmorAbsorb = true;
-    public void EnableOneTimeRevive() => canReviveOnce = true;
-    public void EnableAOEProjectile() => canShootAOEProjectile = true;
+
+        public void EnableArmorAbsorption()
+    {
+        hasArmorAbsorb = true;
+    }
+
+    public void EnableOneTimeRevive()
+    {
+        canReviveOnce = true;
+    }
+    public void EnableAOEProjectile()
+    {
+        canShootAOEProjectile = true;
+    }
+    public void IncreaseMaxHP(float amount)
+    {
+        maxHealth += amount;
+        currentHealth = maxHealth;
+        UpdateHealthUI();
+        Debug.Log($"💖 Max HP increased by {amount}! New Max HP: {maxHealth}");
+    }
+
+    public void IncreaseLightAttackDamage(float amount)
+    {
+        lightAttackDamage += amount;
+        Debug.Log($"⚔ Light Attack Damage increased by {amount}! New Damage: {lightAttackDamage}");
+    }
+
 
     void PlayAnimation(string animationName, bool lockDuringAnimation = false)
     {

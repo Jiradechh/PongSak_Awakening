@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 
@@ -12,6 +13,7 @@ public class GameManager : Singleton<GameManager>
     [Header("UI Elements")]
     public TextMeshProUGUI goldText;
     public TextMeshProUGUI gemsText;
+    public CanvasGroup currencyUIGroup;
 
     [Header("Stage and Map Settings")]
     public string[] allStages;
@@ -29,16 +31,24 @@ public class GameManager : Singleton<GameManager>
     private GameObject currentPlayer;
     private Transform spawnPoint;
 
-    [Header("Warp Gate Settings")]
+    [Header("Warp Gate & Treasure Settings")]
     public GameObject warpGatePrefab;
     private Transform warpGateSpawnPoint;
+    private bool treasureSpawned = false;
+    public GameObject treasurePrefab;
+    private Transform treasureSpawnPoint;
+
+    private Coroutine fadeCoroutine;
 
     private void Start()
     {
         UpdateCurrencyUI();
         FindSpawnPoint();
         FindWarpGatePoint();
+        FindTreasureSpawnPoint();
         InvokeRepeating(nameof(CheckAndSpawnWarpGate), 5f, 5f);
+
+        if (currencyUIGroup != null) currencyUIGroup.alpha = 0f;
     }
 
     #region Currency Methods
@@ -80,6 +90,44 @@ public class GameManager : Singleton<GameManager>
     {
         if (goldText != null) goldText.text = $"{gold}";
         if (gemsText != null) gemsText.text = $"{gems}";
+
+        if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
+        fadeCoroutine = StartCoroutine(FadeCurrencyUI());
+    }
+
+    private IEnumerator FadeCurrencyUI()
+    {
+        if (currencyUIGroup != null)
+        {
+            float duration = 0.3f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                currencyUIGroup.alpha = Mathf.Lerp(currencyUIGroup.alpha, 1f, elapsed / duration);
+                yield return null;
+            }
+
+            currencyUIGroup.alpha = 1f;
+        }
+
+        yield return new WaitForSeconds(2f);
+
+        if (currencyUIGroup != null)
+        {
+            float duration = 0.5f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                currencyUIGroup.alpha = Mathf.Lerp(currencyUIGroup.alpha, 0f, elapsed / duration);
+                yield return null;
+            }
+
+            currencyUIGroup.alpha = 0f;
+        }
     }
     #endregion
 
@@ -93,37 +141,52 @@ public class GameManager : Singleton<GameManager>
     }
 
     public void LoadNextStage()
+{
+    if (!gameInProgress) return;
+
+    currentStage++;
+    string sceneToLoad;
+
+    if (currentStage <= 4)
     {
-        if (!gameInProgress)
-        {
-            return;
-        }
+        sceneToLoad = stageQueue[currentStage - 1];
+    }
+    else if (currentStage == 5)
+    {
+        sceneToLoad = shopScene;
+    }
+    else if (currentStage == 6)
+    {
+        sceneToLoad = bossScene;
+    }
+    else
+    {
+        LoadLobbyAndRestart(); 
+        return;
+    }
 
-        currentStage++;
+    SceneManager.LoadScene(sceneToLoad);
 
-        string sceneToLoad;
-        if (currentStage <= 4)
-        {
-            sceneToLoad = stageQueue[currentStage - 1];
-        }
-        else if (currentStage == 5)
-        {
-            sceneToLoad = shopScene;
-        }
-        else if (currentStage == 6)
-        {
-            sceneToLoad = bossScene;
-        }
-        else
-        {
-            LoadLobby();
-            return;
-        }
+    Invoke(nameof(FindSpawnPoint), 0.5f);
+    Invoke(nameof(FindWarpGatePoint), 0.5f);
+    Invoke(nameof(FindTreasureSpawnPoint), 0.5f);
+    Invoke(nameof(RespawnPlayer), 1.0f);
 
-        SceneManager.LoadScene(sceneToLoad);
+    treasureSpawned = false;
+}
+
+    private void LoadLobbyAndRestart()
+    {
+
+        gameInProgress = false;
+        currentStage = 0;
+        stageQueue = GenerateStageQueue(); 
+
+        SceneManager.LoadScene(lobbyScene);
 
         Invoke(nameof(FindSpawnPoint), 0.5f);
         Invoke(nameof(FindWarpGatePoint), 0.5f);
+        Invoke(nameof(FindTreasureSpawnPoint), 0.5f);
         Invoke(nameof(RespawnPlayer), 1.0f);
     }
 
@@ -133,13 +196,16 @@ public class GameManager : Singleton<GameManager>
 
         if (enemies.Length == 0)
         {
-            if (GameObject.FindWithTag("WarpGate") == null)
+            if (GameObject.FindWithTag("WarpGate") == null && warpGateSpawnPoint != null)
             {
-                if (warpGateSpawnPoint != null)
-                {
-                    Quaternion rotation = Quaternion.Euler(90f, 0f, 0f);
-                    Instantiate(warpGatePrefab, warpGateSpawnPoint.position, rotation);
-                }
+                Quaternion rotation = Quaternion.Euler(90f, 0f, 0f);
+                Instantiate(warpGatePrefab, warpGateSpawnPoint.position, rotation);
+            }
+
+            if (!treasureSpawned && treasureSpawnPoint != null)
+            {
+                Instantiate(treasurePrefab, treasureSpawnPoint.position, Quaternion.identity);
+                treasureSpawned = true;
             }
         }
     }
@@ -164,6 +230,7 @@ public class GameManager : Singleton<GameManager>
 
         Invoke(nameof(FindSpawnPoint), 0.5f);
         Invoke(nameof(FindWarpGatePoint), 0.5f);
+        Invoke(nameof(FindTreasureSpawnPoint), 0.5f);
         Invoke(nameof(RespawnPlayer), 1.0f);
     }
     #endregion
@@ -171,20 +238,10 @@ public class GameManager : Singleton<GameManager>
     #region Respawn & Death Handling
     public void RespawnPlayer()
     {
-        if (playerPrefab == null)
-        {
-            return;
-        }
+        if (playerPrefab == null) return;
+        if (spawnPoint == null) return;
 
-        if (spawnPoint == null)
-        {
-            return;
-        }
-
-        if (currentPlayer != null)
-        {
-            Destroy(currentPlayer);
-        }
+        if (currentPlayer != null) Destroy(currentPlayer);
 
         currentPlayer = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
     }
@@ -196,10 +253,6 @@ public class GameManager : Singleton<GameManager>
         {
             spawnPoint = spawnObject.transform;
         }
-        else
-        {
-            spawnPoint = null;
-        }
     }
 
     private void FindWarpGatePoint()
@@ -209,15 +262,32 @@ public class GameManager : Singleton<GameManager>
         {
             warpGateSpawnPoint = warpGatePointObject.transform;
         }
-        else
+    }
+
+    private void FindTreasureSpawnPoint()
+    {
+        GameObject treasurePointObject = GameObject.Find("TreasureSpawnPoint");
+        if (treasurePointObject != null)
         {
-            warpGateSpawnPoint = null;
+            treasureSpawnPoint = treasurePointObject.transform;
         }
     }
+    #endregion
+
+    #region Game Pause Methods
+    public void PauseGame()
+    {
+        Time.timeScale = 0f;
+    }
+
+    public void ResumeGame()
+    {
+        Time.timeScale = 1f;
+    }
+    #endregion
 
     public void PlayerDied()
     {
         LoadLobby();
     }
-    #endregion
 }

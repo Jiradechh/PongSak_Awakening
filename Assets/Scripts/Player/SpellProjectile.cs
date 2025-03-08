@@ -36,7 +36,7 @@ public class SpellProjectile : MonoBehaviour
         transform.rotation = Quaternion.identity;
     }
 
-    private void OnTriggerEnter(Collider other)
+        private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Enemy"))
         {
@@ -44,7 +44,6 @@ public class SpellProjectile : MonoBehaviour
             if (enemy != null)
             {
                 enemy.TakeDamage(damage);
-                Debug.Log("Projectile hit the enemy!");
             }
 
             if (isAOE)
@@ -60,7 +59,8 @@ public class SpellProjectile : MonoBehaviour
         }
     }
 
-    private void ApplyAOEDamage()
+
+        private void ApplyAOEDamage()
     {
         Collider[] hitColliders = Physics.OverlapSphere(transform.position, explosionRadius);
         foreach (Collider hit in hitColliders)
@@ -69,10 +69,10 @@ public class SpellProjectile : MonoBehaviour
             if (enemy != null)
             {
                 enemy.TakeDamage(explosionDamage);
-                Debug.Log($"AOE damaged Enemy. Damage: {explosionDamage}");
             }
         }
     }
+
 
     private void OnDrawGizmosSelected()
     {

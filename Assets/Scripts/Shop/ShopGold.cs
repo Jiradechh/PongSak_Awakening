@@ -1,59 +1,51 @@
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.InputSystem;
-using UnityEngine.EventSystems;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class ShopSystemGold : MonoBehaviour
 {
-    [Header("UI Elements")]
+    #region Public Variables
     public GameObject shopUI;
-    public Button[] itemButtons;
+    public GameObject[] itemButtons;
     public Transform[] spawnPoints;
-    public GameObject confirmationPopup;
-    public TextMeshProUGUI confirmationText;
-    public Button confirmButton;
-    public Button cancelButton;
-    public PlayerInput playerInput;
+    public int[] goldPrices;
+    #endregion
 
-    [Header("Selection System")]
-    private int selectedIndex = 0;
+    #region Private Variables
     private bool isShopOpen = false;
-    private bool isPlayerNear = false;
-    private bool isPopupActive = false;
-
-    private Dictionary<int, int> itemPrices = new Dictionary<int, int>();
-    private List<GameObject> availableItems;
+    private bool playerIsNear = false;
+    private int selectedIndex = 0;
     private List<GameObject> spawnedItems = new List<GameObject>();
+    private Dictionary<GameObject, int> itemPriceMap = new Dictionary<GameObject, int>();
+    private HashSet<string> purchasedItems = new HashSet<string>();
+    private bool shopInitialized = false;
+    private bool canPurchase = true;
+    private float inputCooldown = 0.2f;
+    private float purchaseCooldown = 0.3f;
+    private bool canMove = true;
+    #endregion
 
+    #region Unity Callbacks
     private void Start()
     {
         shopUI.SetActive(false);
-        confirmationPopup.SetActive(false);
-
-        if (playerInput != null)
-        {
-            playerInput.actions["OpenShop"].performed += ctx => TryToggleShop();
-            playerInput.actions["Navigate"].performed += ctx => Navigate(ctx.ReadValue<Vector2>());
-            playerInput.actions["Select"].performed += ctx => HandleSelect();
-        }
-        else
-        {
-            Debug.LogWarning("PlayerInput is not assigned in ShopSystemGold!");
-        }
-
-        SetupItemPrices();
+        InitializeShop();
     }
 
-    private void OnDestroy()
+    private void Update()
     {
-        if (playerInput != null)
+        if (playerIsNear && (Input.GetKeyDown(KeyCode.F) || Input.GetKeyDown(KeyCode.Joystick1Button5)))
         {
-            playerInput.actions["OpenShop"].performed -= ctx => TryToggleShop();
-            playerInput.actions["Navigate"].performed -= ctx => Navigate(ctx.ReadValue<Vector2>());
-            playerInput.actions["Select"].performed -= ctx => HandleSelect();
+            ToggleShop(!isShopOpen);
+        }
+
+        if (isShopOpen)
+        {
+            HandleInput();
         }
     }
 
@@ -61,7 +53,7 @@ public class ShopSystemGold : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            isPlayerNear = true;
+            playerIsNear = true;
         }
     }
 
@@ -69,262 +61,177 @@ public class ShopSystemGold : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            isPlayerNear = false;
-            CloseShop();
+            playerIsNear = false;
+            ToggleShop(false);
         }
     }
+    #endregion
 
-    private void TryToggleShop()
-    {
-        if (isPlayerNear)
-        {
-            ToggleShop();
-        }
-    }
-
-    private void ToggleShop()
-    {
-        if (isShopOpen)
-        {
-            CloseShop();
-        }
-        else
-        {
-            OpenShop();
-        }
-    }
-
-    private void OpenShop()
+    #region Shop Logic
+   private void ToggleShop(bool open)
+{
+    if (open)
     {
         isShopOpen = true;
         shopUI.SetActive(true);
-        Time.timeScale = 0f;
-        SpawnShopItems();
-        UpdateSelection();
+        GameManager.Instance.PauseGame();
     }
-
-    private void CloseShop()
+    else
     {
-        if (shopUI == null || confirmationPopup == null) return;
+        CloseShopImmediately();
+    }
+}
 
-        isShopOpen = false;
+
+
+    private void CloseShopImmediately()
+    {
         shopUI.SetActive(false);
-        confirmationPopup.SetActive(false);
-        Time.timeScale = 1f;
-        ClearShopItems();
+        isShopOpen = false;
+        GameManager.Instance.ResumeGame();
     }
+    #endregion
 
-    private void SetupItemPrices()
+    private void InitializeShop()
     {
-        itemPrices[0] = 50;  // MaxDash
-        itemPrices[1] = 75;  // DropGoldFromEnvironment
-        itemPrices[2] = 100; // RegenHp
-        itemPrices[3] = 150; // ArmorAbsorbHit
-        itemPrices[4] = 200; // ReviveOnce
-        itemPrices[5] = 125; // AOEProjectile
-    }
+        if (shopInitialized) return;
 
-        private void SpawnShopItems()
-    {
-        ClearShopItems();
-        List<int> indices = new List<int> { 0, 1, 2, 3, 4, 5 };
-        indices.Shuffle();
-
-        for (int i = 0; i < spawnPoints.Length; i++)
-        {
-            int itemIndex = indices[i];
-            GameObject item = Instantiate(itemButtons[itemIndex].gameObject, spawnPoints[i]);
-            item.name = itemButtons[itemIndex].name;
-            spawnedItems.Add(item);
-        }
-    }
-
-
-    private void ClearShopItems()
-    {
-        foreach (var item in spawnedItems)
-        {
-            Destroy(item);
-        }
         spawnedItems.Clear();
-    }
+        itemPriceMap.Clear();
 
-    private void Navigate(Vector2 direction)
-    {
-        if (!isShopOpen || isPopupActive) return;
+        List<GameObject> availableItems = itemButtons.ToList();
+        for (int i = 0; i < spawnPoints.Length && availableItems.Count > 0; i++)
+        {
+            int randomIndex = UnityEngine.Random.Range(0, availableItems.Count);
+            GameObject selectedItem = availableItems[randomIndex];
 
-        if (direction.x > 0) selectedIndex = (selectedIndex + 1) % spawnedItems.Count;
-        if (direction.x < 0) selectedIndex = (selectedIndex - 1 + spawnedItems.Count) % spawnedItems.Count;
+            GameObject newItem = Instantiate(selectedItem, spawnPoints[i]);
+            newItem.transform.localPosition = Vector3.zero;
+            newItem.name = selectedItem.name;
 
+            spawnedItems.Add(newItem);
+            itemPriceMap[newItem] = goldPrices[Array.IndexOf(itemButtons, selectedItem)];
+            availableItems.RemoveAt(randomIndex);
+        }
+
+        shopInitialized = true;
+        selectedIndex = 0;
         UpdateSelection();
     }
 
-  private void UpdateSelection()
-{
-    for (int i = 0; i < spawnedItems.Count; i++)
+    #region Item Selection Logic
+    private void HandleInput()
     {
-        Button button = spawnedItems[i].GetComponent<Button>();
+        float horizontalInput = Input.GetAxisRaw("Horizontal");
+        bool selectPressed = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Joystick1Button0);
 
-        if (i == selectedIndex)
-        {
-            button.Select();
-        }
-    }
-}
-        private void HandlePopupSelect()
-    {
-        if (!isPopupActive) return;
+        if (horizontalInput == 0) canMove = true;
 
-        if (selectedPopupButton == 0)
+        if (canMove && spawnedItems.Count > 0)
         {
-            ConfirmPurchase();
+            if (horizontalInput > 0.5f)
+            {
+                selectedIndex = (selectedIndex + 1) % spawnedItems.Count;
+                UpdateSelection();
+                canMove = false;
+                Invoke(nameof(ResetMove), inputCooldown);
+            }
+            else if (horizontalInput < -0.5f)
+            {
+                selectedIndex = (selectedIndex - 1 + spawnedItems.Count) % spawnedItems.Count;
+                UpdateSelection();
+                canMove = false;
+                Invoke(nameof(ResetMove), inputCooldown);
+            }
         }
-        else
-        {
-            CloseConfirmationPopup();
-        }
-    }
 
-    private void HandleSelect()
-    {
-        if (isPopupActive)
+        if (selectPressed && canPurchase)
         {
-            ConfirmPurchase();
-        }
-        else if (isShopOpen)
-        {
-            OpenConfirmationPopup();
-        }
-    }
-    private int selectedPopupButton = 0;
-        private void OpenConfirmationPopup()
-    {
-        if (!isShopOpen || spawnedItems.Count == 0) return;
-
-        int price = itemPrices.ContainsKey(selectedIndex) ? itemPrices[selectedIndex] : 0;
-        confirmationText.text = $"Purchase {price} Gold?";
-
-        confirmationPopup.SetActive(true);
-        isPopupActive = true;
-
-        selectedPopupButton = 0;
-        EventSystem.current.SetSelectedGameObject(confirmButton.gameObject);
-
-        DisableShopButtons();
-    }
-    private void UpdatePopupSelection()
-    {
-        if (!isPopupActive) return;
-
-        if (selectedPopupButton == 0)
-        {
-            confirmButton.Select();
-        }
-        else
-        {
-            cancelButton.Select(); 
-        }
-        }
-    private void NavigatePopup(Vector2 direction)
-    {
-        if (!isPopupActive) return;
-
-        if (direction.x > 0 || direction.x < 0) // ซ้าย-ขวาเปลี่ยนปุ่ม
-        {
-            selectedPopupButton = (selectedPopupButton == 0) ? 1 : 0;
-            EventSystem.current.SetSelectedGameObject(
-                selectedPopupButton == 0 ? confirmButton.gameObject : cancelButton.gameObject
-            );
-        }
-    }
-    private void CloseConfirmationPopup()
-    {
-        confirmationPopup.SetActive(false);
-        isPopupActive = false;
-
-        EnableShopButtons(); 
-        EventSystem.current.SetSelectedGameObject(spawnedItems[selectedIndex]);
-    }
-    private void EnableShopButtons()
-{
-    foreach (var item in spawnedItems)
-    {
-        item.GetComponent<Button>().interactable = true;
-    }
-}
-    private void DisableShopButtons()
-    {
-        foreach (var item in spawnedItems)
-        {
-            item.GetComponent<Button>().interactable = false;
-        }
-    }
-    private void ConfirmPurchase()
-    {
-        if (GameManager.Instance == null) return;
-
-        int price = itemPrices[selectedIndex];
-        if (GameManager.Instance.SpendGold(price))
-        {
-            ApplyItemEffect(selectedIndex);
-            CloseConfirmationPopup();
-        }
-        else
-        {
-            Debug.Log("Not enough gold!");
-            CloseConfirmationPopup();
+            StartCoroutine(PurchaseItem());
+            canPurchase = false;
         }
     }
 
-    private void ApplyItemEffect(int itemIndex)
-    {
-        PlayerController player = PlayerController.Instance;
-        if (player == null) return;
+    private void ResetMove() => canMove = true;
 
-        switch (itemIndex)
+    private void UpdateSelection()
+    {
+        for (int i = 0; i < spawnedItems.Count; i++)
         {
-            case 0:
-                player.IncreaseMaxDashes();
-                Debug.Log("Max Dash Increased!");
+            Image itemImage = spawnedItems[i].GetComponent<Image>();
+            itemImage.color = (i == selectedIndex) ? Color.red : Color.yellow;
+        }
+    }
+    #endregion
+
+    #region Purchase Logic
+   private IEnumerator PurchaseItem()
+    {
+        if (spawnedItems.Count == 0 || selectedIndex < 0 || selectedIndex >= spawnedItems.Count)
+        {
+            canPurchase = true;
+            yield break;
+        }
+
+        GameObject selectedItem = spawnedItems[selectedIndex];
+
+        if (!itemPriceMap.ContainsKey(selectedItem))
+        {
+            canPurchase = true;
+            yield break;
+        }
+
+        int goldPrice = itemPriceMap[selectedItem];
+
+        if (!GameManager.Instance.SpendGold(goldPrice))
+        {
+            canPurchase = true;
+            yield break;
+        }
+
+        ApplyItemEffect(selectedItem.name);
+        purchasedItems.Add(selectedItem.name);
+        Destroy(spawnedItems[selectedIndex]);
+        spawnedItems.RemoveAt(selectedIndex);
+
+        Debug.Log($"Item Purchased: {selectedItem.name}");
+
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        CloseShopImmediately(); 
+    }
+
+    #endregion
+
+    #region Item Effect Logic
+    private void ApplyItemEffect(string itemName)
+    {
+        switch (itemName)
+        {
+            case "MaxDash":
+                PlayerController.Instance.IncreaseMaxDashes();
                 break;
-            case 1:
-                player.EnableEnvironmentGoldDrop();
-                Debug.Log("Gold now drops from environment!");
+
+            case "DropGoldFromEnvironment":
+                PlayerController.Instance.EnableEnvironmentGoldDrop();
                 break;
-            case 2:
-                player.StartRegenHp();
-                Debug.Log("HP Regen Activated!");
+
+            case "RegenHp":
+                PlayerController.Instance.StartRegenHp();
                 break;
-            case 3:
-                player.EnableArmorAbsorption();
-                Debug.Log("Armor Absorption Active!");
+
+            case "ArmorAbsorbHit":
+                PlayerController.Instance.EnableArmorAbsorption();
                 break;
-            case 4:
-                player.EnableOneTimeRevive();
-                Debug.Log("Revive Once Enabled!");
+
+            case "ReviveOnce":
+                PlayerController.Instance.EnableOneTimeRevive();
                 break;
-            case 5:
-                player.EnableAOEProjectile();
-                Debug.Log("AOE Projectile Unlocked!");
-                break;
-            default:
-                Debug.LogWarning($"Unknown Item Effect: {itemIndex}");
+
+            case "AOEProjectile":
+                PlayerController.Instance.EnableAOEProjectile();
                 break;
         }
     }
-}
-public static class ListExtensions
-{
-    private static System.Random rng = new System.Random();
-
-    public static void Shuffle<T>(this List<T> list)
-    {
-        int n = list.Count;
-        while (n > 1)
-        {
-            n--;
-            int k = rng.Next(n + 1);
-            (list[k], list[n]) = (list[n], list[k]);
-        }
-    }
+    #endregion
 }
