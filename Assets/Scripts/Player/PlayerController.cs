@@ -78,6 +78,18 @@ public class PlayerController : Singleton<PlayerController>
         currentDashes = maxDashes;
          currentHealth = maxHealth;
         UpdateHealthUI();
+         /*if (SaveManager.Instance.onContinue)
+            {
+                //Load Savegems
+                maxHealth = SaveManager.Instance.saveData.maxHealth;
+            }*/
+
+             /* if (SaveManager.Instance.onContinue)
+        {
+            //Load Savegems 
+            lightAttackDamage = SaveManager.Instance.saveData.lightAttackDamage;
+        }*/
+
     }
 
     private void Update()

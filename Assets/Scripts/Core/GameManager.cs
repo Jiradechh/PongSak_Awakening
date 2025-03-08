@@ -49,6 +49,12 @@ public class GameManager : Singleton<GameManager>
         InvokeRepeating(nameof(CheckAndSpawnWarpGate), 5f, 5f);
 
         if (currencyUIGroup != null) currencyUIGroup.alpha = 0f;
+
+         /* if (SaveManager.Instance.onContinue)
+        {
+            //Load Savegems
+            gems = SaveManager.Instance.saveData.gems;
+        }*/
     }
 
     #region Currency Methods
