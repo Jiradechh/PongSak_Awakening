@@ -30,7 +30,11 @@ public class EnemyController : MonoBehaviour
     public GameObject projectilePrefab;
     public Transform firePoint;
     public float projectileSpeed = 10f;
-    private float rangedCooldown = 5f; 
+    private float rangedCooldown = 5f;
+
+    [Header("Particle Effect")]
+    public ParticleSystem smokePuff;
+    public ParticleSystem hitEffect;
 
     private bool onAttack = false;
     private float distanceToPlayer;
@@ -121,6 +125,7 @@ public class EnemyController : MonoBehaviour
 
     private void DestroyEnemy()
     {
+        smokePuff.Play();
         Destroy(gameObject);
     }
 

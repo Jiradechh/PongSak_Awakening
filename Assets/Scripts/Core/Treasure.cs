@@ -4,6 +4,7 @@ public class Treasure : MonoBehaviour
 {
     public int goldAmount = 5;
     public int gemAmount = 5;
+    public ParticleSystem particle;
     private bool isCollected = false;
 
     private Animator treasureAnimator;
@@ -38,6 +39,12 @@ public class Treasure : MonoBehaviour
 
         Debug.Log($"🎁 Treasure Collected! +{goldAmount} Gold, +{gemAmount} Gems");
 
-        Destroy(gameObject, 0.5f);
+      //  Destroy(gameObject, 0.5f);
+    }
+
+    private void PlayParticle()
+    {
+        Debug.Log("particle");
+        particle.Play();
     }
 }
