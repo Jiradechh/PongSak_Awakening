@@ -1160,7 +1160,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 775a7176fec2fc043a2ae8cd0346b933, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 10
+  maxHealth: 100
   heartImage: {fileID: 2264288976186916353}
   arrowSprite: {fileID: 7155036612679774928}
   walkSpeed: 2

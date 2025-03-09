@@ -329,7 +329,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bca4850f6825f89459d86587c07d53ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gold: 10000
+  gold: 100
   gems: 100
   goldText: {fileID: 3210398209209459107}
   gemsText: {fileID: 4883750135818813461}
