@@ -5,7 +5,6 @@ public class FadeSpriteWhenObstructed : Singleton<FadeSpriteWhenObstructed>
 {
     private Transform player;
     private Camera mainCamera;
-    public string obstacleName = "Pillar"; 
     public float transparentAlpha = 0.4f;
     public float opaqueAlpha = 1.0f;
     private SpriteRenderer targetSpriteRenderer; 
@@ -19,7 +18,6 @@ public class FadeSpriteWhenObstructed : Singleton<FadeSpriteWhenObstructed>
         {
             player = playerObject.transform;
         }
-      
 
         mainCamera = Camera.main;
         if (mainCamera == null)
@@ -27,7 +25,7 @@ public class FadeSpriteWhenObstructed : Singleton<FadeSpriteWhenObstructed>
             Debug.LogError("Main Camera not found");
         }
 
-        GameObject obstacleObject = GameObject.Find(obstacleName);
+        GameObject obstacleObject = GameObject.FindGameObjectWithTag("Pillar"); 
         if (obstacleObject != null)
         {
             targetSpriteRenderer = obstacleObject.GetComponent<SpriteRenderer>();
@@ -50,7 +48,7 @@ public class FadeSpriteWhenObstructed : Singleton<FadeSpriteWhenObstructed>
         RaycastHit hit;
         if (Physics.Raycast(player.position, direction, out hit, distance))
         {
-            if (hit.collider.gameObject.name == obstacleName)
+            if (hit.collider.CompareTag("Pillar")) // ใช้การเช็ค Tag แทนการเช็คชื่อ
             {
                 if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
                 fadeCoroutine = StartCoroutine(FadeSprite(targetSpriteRenderer, transparentAlpha));

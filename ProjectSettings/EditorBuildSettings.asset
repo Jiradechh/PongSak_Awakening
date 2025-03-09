@@ -6,26 +6,29 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Test.unity
+    path: Assets/Scenes/MainMenu.unity
+    guid: 6acaa5277c08e7d4faa73b2360507747
+  - enabled: 1
+    path: Assets/Scenes/Lobby.unity
     guid: 0584b9bb4a29af2498c80f2c4a6c624e
   - enabled: 1
     path: Assets/Scenes/Map1-1.unity
-    guid: e8577b72c3836e04c848a3719f19d79c
+    guid: 30d0c01d91334724a887b020be040810
   - enabled: 1
     path: Assets/Scenes/Map1-2.unity
-    guid: f1c57e5ac9d555048a886658c938946c
+    guid: f7fe6870ab1c0f249814c62688f8b566
   - enabled: 1
     path: Assets/Scenes/Map1-3.unity
-    guid: c296040a76f40d543b54e26529140fd0
+    guid: 24caed014ca3a964bae71e7fd8a52d81
   - enabled: 1
     path: Assets/Scenes/Map1-4.unity
-    guid: b65a05338714b71418ab16e0fdf2e137
+    guid: 287a7e30118b7ff46a7688f64a9e92f7
   - enabled: 1
     path: Assets/Scenes/Map1-5.unity
-    guid: 08718f7dd4e0095428410292de19516f
+    guid: 2ec32f6ef1d07a249b0246ae99b7b82c
   - enabled: 1
     path: Assets/Scenes/Map1-6.unity
-    guid: b4fdd69e6fad92841ad2238d6f0bd04d
+    guid: 072a3e382f59f4d49a1180eb66a7d856
   - enabled: 1
     path: Assets/Scenes/ShopMap1.unity
     guid: 8df43a8ddbfb4bd408f993b6fc009e4c

@@ -68,6 +68,16 @@ public class PlayerController : Singleton<PlayerController>
     private Vector3 lastShootDirection;
     private bool isInvulnerable = false;
 
+        [Header("Audio Settings")]
+    public AudioSource audioSource;
+    public AudioClip walkSound;
+    public AudioClip hurtSound;
+    public AudioClip dashSound;
+    public AudioClip lightAttackSound;
+    public AudioClip heavyAttackSound;
+    public AudioClip projectileSound;
+
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -123,6 +133,8 @@ void HandleMovement()
     if (moveInput.magnitude > 0.1f)
     {
         lastMoveDirection = movement.normalized;
+        if (!audioSource.isPlaying)
+        audioSource.PlayOneShot(walkSound);
     }
 
     if (arrowSprite != null)
@@ -192,6 +204,7 @@ void HandleMovement()
         canMove = false;
         isPlayingAnimation = true;
         PlayAnimation("P_CastSpell", true);
+        audioSource.PlayOneShot(projectileSound);
 
         yield return new WaitForSeconds(0.2f);
 
@@ -237,6 +250,12 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
     canMove = false;
     isPlayingAnimation = true;
     PlayAnimation(animationName, true);
+    if (isLightAttack)
+    audioSource.PlayOneShot(lightAttackSound);
+    else
+    audioSource.PlayOneShot(heavyAttackSound);
+
+
 
     yield return new WaitForSeconds(anim.GetCurrentAnimatorStateInfo(0).length * 0.1f); 
 
@@ -291,6 +310,7 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
 
         isDashing = true; 
         PlayAnimation("P_Dash", true);
+        audioSource.PlayOneShot(dashSound);
         currentDashes--;
 
         Vector3 dashDir = moveInput.magnitude > 0.1f ? new Vector3(moveInput.x, 0, moveInput.y).normalized : lastMoveDirection;
@@ -346,6 +366,7 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
 
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+        audioSource.PlayOneShot(hurtSound);
         UpdateHealthUI();
         StartCoroutine(HandleHurtAnimation());
 
@@ -431,14 +452,48 @@ IEnumerator AttackRoutine(float damage, string animationName, bool isLightAttack
         canHeavyAttack = true;
     }
 
-   void Die()
+void Die()
 {
-    anim.Play("P_Die");
+    canMove = false;
+    isPlayingAnimation = true;
+    PlayAnimation("P_Die");
+
+    StartCoroutine(HandleDeath());
+}
+
+private IEnumerator HandleDeath()
+{
+    yield return new WaitForSeconds(1f);
+
     if (GameManager.Instance != null)
     {
         GameManager.Instance.PlayerDied();
     }
 }
+
+ public void ResetPlayerState()
+{
+    currentHealth = maxHealth;
+    UpdateHealthUI();  
+
+    canMove = true;
+    canDash = true;
+    canLightAttack = true;
+    canHeavyAttack = true;
+    isPlayingAnimation = false;
+    isAttackAnimation = false;
+    isInvulnerable = false;
+
+    rb.linearVelocity = Vector3.zero; 
+    if (anim != null)
+    {
+        anim.Play("P_Idle");
+    }
+}
+
+
+
+
     void OnDrawGizmosSelected()
     {
         if (firepoint != null)

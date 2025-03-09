@@ -13,6 +13,9 @@ public class EnvironmentObject : MonoBehaviour
     public bool canDropGold = false;
     public int[] goldDropAmounts = { 5, 1, 3 };
 
+    public AudioSource audioSource;
+    public AudioClip desevi;
+
     private void Start()
     {
         currentHealth = maxHealth;
@@ -31,13 +34,27 @@ public class EnvironmentObject : MonoBehaviour
 
     private void DestroyEnvironment()
     {
+        float destroyDelay = 0f;
+
         if (destructionEffect != null)
         {
-            Instantiate(destructionEffect, transform.position, Quaternion.identity);
+            GameObject effect = Instantiate(destructionEffect, transform.position, Quaternion.identity);
+            ParticleSystem ps = effect.GetComponent<ParticleSystem>();
+
+            if (ps != null)
+            {
+                destroyDelay = ps.main.duration;
+                Destroy(effect, destroyDelay);
+            }
+        }
+
+        if (audioSource != null && desevi != null)
+        {
+            audioSource.PlayOneShot(desevi);
         }
 
         DropGold();
-        Destroy(gameObject);
+        Destroy(gameObject, destroyDelay);
     }
 
     private void DropGold()
@@ -48,11 +65,9 @@ public class EnvironmentObject : MonoBehaviour
             if (goldAmount > 0)
             {
                 GameManager.Instance.AddGold(goldAmount);
-                Debug.Log($"💰 Environment dropped {goldAmount} Gold!");
             }
         }
     }
-
 
     public void EnableGoldDrop()
     {

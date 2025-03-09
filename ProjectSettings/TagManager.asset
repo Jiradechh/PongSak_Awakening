@@ -9,6 +9,7 @@ TagManager:
   - Pillar
   - Enemy
   - Wall
+  - GameManager
   layers:
   - Default
   - TransparentFX

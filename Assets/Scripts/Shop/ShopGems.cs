@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
-using UnityEngine.EventSystems; 
+using UnityEngine.EventSystems;
 
 public class ShopGems : MonoBehaviour
 {
@@ -21,10 +21,13 @@ public class ShopGems : MonoBehaviour
     public int hpIncreaseAmount = 25;
     public int damageIncreaseAmount = 25;
 
+    [Header("Animation")]
+    public Animator npcAnimator; 
+
     private PlayerController player;
     private bool isShopOpen = false;
     private bool playerIsNear = false;
-    private int currentIndex = 1; 
+    private int currentIndex = 1;
     private Button[] buttons;
     private EventSystem eventSystem;
 
@@ -58,7 +61,7 @@ public class ShopGems : MonoBehaviour
 
         if (isShopOpen && Gamepad.current != null)
         {
-            if (Gamepad.current.buttonEast.wasPressedThisFrame) 
+            if (Gamepad.current.buttonEast.wasPressedThisFrame)
             {
                 CloseShop();
             }
@@ -74,7 +77,7 @@ public class ShopGems : MonoBehaviour
                 UpdateButtonSelection();
             }
 
-            if (Gamepad.current.buttonSouth.wasPressedThisFrame) 
+            if (Gamepad.current.buttonSouth.wasPressedThisFrame)
             {
                 if (currentIndex == 0) BuyIncreaseHP();
                 else if (currentIndex == 1) BuyIncreaseDamage();
@@ -87,6 +90,11 @@ public class ShopGems : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerIsNear = true;
+
+            if (npcAnimator != null)
+            {
+                npcAnimator.SetTrigger("IsHi");
+            }
         }
     }
 
@@ -135,7 +143,6 @@ public class ShopGems : MonoBehaviour
             player.IncreaseMaxHP(hpIncreaseAmount);
             UpdatePlayerStatsUI();
         }
-        
     }
 
     private void BuyIncreaseDamage()
@@ -145,7 +152,6 @@ public class ShopGems : MonoBehaviour
             player.IncreaseLightAttackDamage(damageIncreaseAmount);
             UpdatePlayerStatsUI();
         }
-        
     }
 
     private void UpdateButtonSelection()

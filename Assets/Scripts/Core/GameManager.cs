@@ -40,6 +40,28 @@ public class GameManager : Singleton<GameManager>
 
     private Coroutine fadeCoroutine;
 
+            [Header("Audio Settings")]
+        public AudioClip lobbyMusic;
+        public AudioClip stageMusic;
+        public AudioClip bossMusic;
+        private AudioSource audioSource;
+
+         private static bool instanceExists = false; 
+
+    private void Awake()
+    {
+        if (instanceExists)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        instanceExists = true;
+        DontDestroyOnLoad(this.gameObject);
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
     private void Start()
     {
         UpdateCurrencyUI();
@@ -55,6 +77,11 @@ public class GameManager : Singleton<GameManager>
             //Load Savegems
             gems = SaveManager.Instance.saveData.gems;
         }*/
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.loop = true;
+        audioSource.playOnAwake = false;
+
+        PlayMusicForCurrentScene();
     }
 
     #region Currency Methods
@@ -172,6 +199,7 @@ public class GameManager : Singleton<GameManager>
     }
 
     SceneManager.LoadScene(sceneToLoad);
+    Invoke(nameof(PlayMusicForCurrentScene), 1f);
 
     Invoke(nameof(FindSpawnPoint), 0.5f);
     Invoke(nameof(FindWarpGatePoint), 0.5f);
@@ -183,12 +211,12 @@ public class GameManager : Singleton<GameManager>
 
     private void LoadLobbyAndRestart()
     {
-
         gameInProgress = false;
         currentStage = 0;
-        stageQueue = GenerateStageQueue(); 
+        stageQueue = GenerateStageQueue();
 
         SceneManager.LoadScene(lobbyScene);
+        Invoke(nameof(PlayMusicForCurrentScene), 1f);
 
         Invoke(nameof(FindSpawnPoint), 0.5f);
         Invoke(nameof(FindWarpGatePoint), 0.5f);
@@ -227,7 +255,13 @@ public class GameManager : Singleton<GameManager>
 
         return shuffledStages.GetRange(0, 4);
     }
-
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            FindSpawnPoint();
+            FindWarpGatePoint();
+            FindTreasureSpawnPoint();
+            RespawnPlayer();
+        }
     public void LoadLobby()
     {
         gameInProgress = false;
@@ -242,24 +276,32 @@ public class GameManager : Singleton<GameManager>
     #endregion
 
     #region Respawn & Death Handling
-    public void RespawnPlayer()
+public void RespawnPlayer()
+{
+    if (playerPrefab == null || spawnPoint == null) return;
+
+    currentPlayer = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+    Debug.Log($"✅ Player Respawned at {spawnPoint.position}");
+
+    PlayerController playerController = currentPlayer.GetComponent<PlayerController>();
+    if (playerController != null)
     {
-        if (playerPrefab == null) return;
-        if (spawnPoint == null) return;
-
-        if (currentPlayer != null) Destroy(currentPlayer);
-
-        currentPlayer = Instantiate(playerPrefab, spawnPoint.position, spawnPoint.rotation);
+        playerController.ResetPlayerState();
+        playerController.EnablePlayerActions(); 
     }
+}
 
-    private void FindSpawnPoint()
+
+private void FindSpawnPoint()
+{
+    GameObject spawnObject = GameObject.Find("SpawnPoints");
+    if (spawnObject != null)
     {
-        GameObject spawnObject = GameObject.Find("SpawnPoints");
-        if (spawnObject != null)
-        {
-            spawnPoint = spawnObject.transform;
-        }
+        spawnPoint = spawnObject.transform;
     }
+   
+}
+
 
     private void FindWarpGatePoint()
     {
@@ -292,8 +334,62 @@ public class GameManager : Singleton<GameManager>
     }
     #endregion
 
-    public void PlayerDied()
+
+
+public void PlayerDied()
+{
+    StartCoroutine(HandlePlayerDeath());
+}
+
+private IEnumerator HandlePlayerDeath()
+{
+    yield return new WaitForSeconds(1f);
+
+    if (currentPlayer != null)
     {
-        LoadLobby();
+        Destroy(currentPlayer);
+        currentPlayer = null;
+    }
+
+    gold = 0;  
+    UpdateCurrencyUI();
+
+    SceneManager.LoadScene(lobbyScene);
+
+    yield return new WaitForSeconds(0.5f); 
+
+    FindSpawnPoint();
+
+    RespawnPlayer();
+}
+
+
+
+
+
+     private void PlayMusicForCurrentScene()
+    {
+        if (audioSource == null) return;
+
+        AudioClip clipToPlay = null;
+
+        if (SceneManager.GetActiveScene().name == lobbyScene)
+        {
+            clipToPlay = lobbyMusic;
+        }
+        else if (SceneManager.GetActiveScene().name == bossScene)
+        {
+            clipToPlay = bossMusic;
+        }
+        else
+        {
+            clipToPlay = stageMusic;
+        }
+
+        if (clipToPlay != null && audioSource.clip != clipToPlay)
+        {
+            audioSource.clip = clipToPlay;
+            audioSource.Play();
+        }
     }
 }

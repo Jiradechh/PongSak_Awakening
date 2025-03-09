@@ -9,6 +9,10 @@ public class Treasure : MonoBehaviour
 
     private Animator treasureAnimator;
 
+    public AudioSource audioSource;
+
+    public AudioClip openTreasure;
+
     private void Awake()
     {
         treasureAnimator = GetComponent<Animator>();
@@ -24,6 +28,7 @@ public class Treasure : MonoBehaviour
         {
             isCollected = true;
             CollectTreasure();
+            audioSource.PlayOneShot(openTreasure);
         }
     }
 

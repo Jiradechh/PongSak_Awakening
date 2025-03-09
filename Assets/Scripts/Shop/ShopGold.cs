@@ -27,6 +27,8 @@ public class ShopSystemGold : MonoBehaviour
     private float inputCooldown = 0.2f;
     private float purchaseCooldown = 0.3f;
     private bool canMove = true;
+
+     public Animator npcAnimator; 
     #endregion
 
     #region Unity Callbacks
@@ -54,6 +56,10 @@ public class ShopSystemGold : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerIsNear = true;
+            if (npcAnimator != null)
+            {
+                npcAnimator.SetTrigger("IsHi");
+            }
         }
     }
 

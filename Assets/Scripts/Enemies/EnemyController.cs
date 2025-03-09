@@ -48,6 +48,9 @@ public class EnemyController : MonoBehaviour
     private PlayerController playerHealth;
     private float attackCooldown;
     private float initialYPosition;
+     [Header("Audio Settings")]
+    public AudioSource audioSource;
+    public AudioClip hurtSound;
 
     public bool IsDead => isDead;
     #endregion
@@ -93,6 +96,7 @@ public class EnemyController : MonoBehaviour
         if (health > 0)
         {
             PlayHurtAnimation();
+            audioSource.PlayOneShot(hurtSound);
         }
         else
         {
